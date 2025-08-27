@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Luscious Scanner</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; flex-direction:column;
+           background: linear-gradient(135deg, #0f172a, #111827); color:#e5e7eb; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+    h1 { margin: 16px 0; }
+    #reader { width: 340px; max-width: 92vw; }
+    .status { margin-top: 14px; font-size: 1.1rem; padding: 10px 14px; border-radius: 10px; border:1px solid #334155; background:#0b1220; }
+    .ok { color:#22c55e; }
+    .bad { color:#ef4444; }
+    .muted { color:#94a3b8; }
+    .bar { position: fixed; top: 12px; right: 12px; font-size: 0.9rem; color:#94a3b8; }
+  </style>
+</head>
+<body>
+  <div class="bar">Use on HTTPS (GitHub Pages). Allow camera permission.</div>
+  <h1>Scan Ticket QR</h1>
+  <div id="reader"></div>
+  <div id="status" class="status muted">Awaiting scan…</div>
+
+  <script>
+    // TODO: Replace with your Google Script URL
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz05dy4oCRQv9rCeoP8G9ToAVt0vxpxQc5rkaVMFRPnr3bbAN8-yG32WAqLmZqYl2Nr/exec";
+
+    function setStatus(text, good=null) {
+      const el = document.getElementById('status');
+      el.textContent = text;
+      el.className = 'status ' + (good === true ? 'ok' : good === false ? 'bad' : 'muted');
+    }
+
+    function onScanSuccess(decodedText) {
+      setStatus("Checking ticket…");
+      // Accept either plain UUID or full URL-encoded data
+      const ticketParam = encodeURIComponent(decodedText.trim());
+      const url = SCRIPT_URL + "?ticket=" + ticketParam;
+      fetch(url)
+        .then(r => r.text())
+        .then(msg => {
+          const good = /^\s*✅/.test(msg);
+          setStatus(msg, good);
+        })
+        .catch(err => {
+          console.error(err);
+          setStatus("Error contacting server.", false);
+        });
+    }
+
+    const html5QrCode = new Html5Qrcode("reader");
+    Html5Qrcode.getCameras().then(cameras => {
+      const config = { fps: 10, qrbox: 250 };
+      const camId = cameras && cameras.length ? cameras[0].id : { facingMode: "environment" };
+      html5QrCode.start(camId, config, onScanSuccess);
+    }).catch(err => {
+      document.getElementById('reader').innerHTML = "<div style='padding:12px;'>Camera error: " + (err && err.message ? err.message : err) + "</div>";
+    });
+  </script>
+</body>
+</html>
